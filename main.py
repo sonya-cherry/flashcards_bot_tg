@@ -6,10 +6,10 @@ import schedule
 import asyncio
 import time
 
-# Установка уровня логирования
+# logging configuration
 logging.basicConfig(level=logging.INFO)
 
-# Регистрация хэндлеров
+# handler registration
 dp.register_message_handler(start_message, commands=['start'])
 dp.register_callback_query_handler(greeting, lambda query: query.data == 'ru' or query.data == 'en', state=SetLanguage.GET_LANGUAGE)
 dp.register_callback_query_handler(help, lambda query: query.data == 'help')
