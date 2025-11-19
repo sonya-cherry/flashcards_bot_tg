@@ -27,6 +27,6 @@
   "change-language-msg": "Вы хотите изменить язык интерфейса?",
   "language-is-changed-msg": "Язык успешно изменен.",
   "language-stays-msg": "Вы не изменили язык.",
-  "back-to-menu-msg": "Вы вернулись в главное меню."
+  "back-to-menu-msg": "Вы вернулись в главное меню.",
   "reminder-msg": "Время повторить свои карточки!"
 }
