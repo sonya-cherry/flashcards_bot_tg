@@ -54,8 +54,9 @@ async def handle_exception(update, exception):
     logging.exception(f"Exception occurred for chat_id={chat_id}:\n{exception}")
 
 
-schedule.every().day.at("15:30").do(db_reschedule_cards)
-
+schedule.every().day.at("23:59").do(db_reschedule_cards)
+schedule.every().day.at("12:00").do(reminders)
+    
 async def scheduler():
     while True:
         schedule.run_pending()
