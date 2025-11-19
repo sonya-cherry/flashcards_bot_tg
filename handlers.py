@@ -57,7 +57,18 @@ async def edit(callback_query : CallbackQuery):
 
 
 async def reminders(callback_query : CallbackQuery):
-    pass
+    # get all users once
+    user_ids = db_get_all_user_ids()
+
+    # broadcast reminder
+    for user_id in user_ids:
+        lang = db_get_language(user_id)
+        kb = base_kb_ru if lang == 'ru' else base_kb_en
+        await bot.send_message(
+            user_id,
+            get_text('reminder-msg', user_id),
+            reply_markup=kb
+        )
 
 
 async def back_to_menu(callback_query : CallbackQuery):
