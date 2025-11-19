@@ -27,5 +27,6 @@
   "change-language-msg": "Do you want to change the interface language?",
   "language-is-changed-msg": "Language is successfully changed.",
   "language-stays-msg": "You didn't change the language.",
-  "back-to-menu-msg": "You returned back to the main menu."
+  "back-to-menu-msg": "You returned back to the main menu.",
+  "reminder-msg": "Time to repeat your flashcards"
 }
