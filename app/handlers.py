@@ -5,23 +5,12 @@ from db.db import *
 from app.keyboards import *
 from app.bot import bot
 from app.states import *
+from app.texts import get_text
 
 from io import BytesIO
-import json
-
-# loading messages templates according to the given language (ru/en)
-def load_text(language):
-   with open(f'locales/{language}.json', 'r', encoding='utf-8') as file:
-        return json.load(file)
 
 
-# returns the needed message text in users language
-def get_text(key, user_id):
-    language = db_get_language(user_id)
-    texts = load_text(language)
-    return texts.get(key)
-
-
+"""  START  """
 # /start
 async def start_message(callback_query : CallbackQuery, state:FSMContext):
     await SetLanguage.GET_LANGUAGE.set()
@@ -41,33 +30,19 @@ async def greeting(callback_query : CallbackQuery, state:FSMContext):
     await state.finish()
 
 
+"""  MENU  """
+
 # /help
-async def help(callback_query : CallbackQuery):
+async def show_help(callback_query : CallbackQuery):
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
     await bot.send_message(user_id, get_text('help-msg', user_id), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en) # help-msg
  
 # /edit
-async def edit(callback_query : CallbackQuery):
+async def settings(callback_query : CallbackQuery):
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
     await bot.send_message(user_id, get_text('settings-msg', user_id), reply_markup=edit_kb_ru if lang == 'ru' else edit_kb_en) # settings-msg
-
-
-async def reminders(callback_query : CallbackQuery):
-    # get all users once
-    # TODO
-    user_ids = db_get_all_user_ids()
-
-    # broadcast reminder
-    for user_id in user_ids:
-        lang = db_get_language(user_id)
-        kb = base_kb_ru if lang == 'ru' else base_kb_en
-        await bot.send_message(
-            user_id,
-            get_text('reminder-msg', user_id),
-            reply_markup=kb
-        )
 
 
 async def back_to_menu(callback_query : CallbackQuery):
@@ -77,7 +52,7 @@ async def back_to_menu(callback_query : CallbackQuery):
     await bot.send_message(user_id, get_text('back-to-menu-msg', user_id), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en)
 
 
-"""  CHANGE LANGUAGE  """
+""" LANGUAGE  """
 
 async def ask_if_change_language(callback_query : CallbackQuery, state: FSMContext):
     user_id = callback_query.from_user.id
@@ -98,7 +73,24 @@ async def change_language(callback_query : CallbackQuery, state: FSMContext):
     await state.finish()
 
 
-"""  ADDING NEW FLASHCARD  """
+"""  REMINDERS  """
+
+async def reminders(callback_query : CallbackQuery):
+    # get all users once
+    # TODO
+    user_ids = db_get_all_user_ids()
+
+    # broadcast reminder
+    for user_id in user_ids:
+        lang = db_get_language(user_id)
+        kb = base_kb_ru if lang == 'ru' else base_kb_en
+        await bot.send_message(
+            user_id,
+            get_text('reminder-msg', user_id),
+            reply_markup=kb
+        )
+
+"""  ADD FLASHCARD  """
 
 # /add
 async def add_card(callback_query: CallbackQuery, state: FSMContext):
@@ -130,7 +122,7 @@ async def add_card_back_side(message: Message, state: FSMContext):
     await message.answer(get_text('add-card-is-saved-msg', user_id), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en) # add-card-is-saved-msg
 
 
-"""  SENDING THE LIST OF FLASHCARDS  """
+"""  SEND LIST OF FLASHCARDS  """
 
 # /list
 async def send_list(callback_query : CallbackQuery):
@@ -148,7 +140,7 @@ async def send_list(callback_query : CallbackQuery):
     await bot.send_document(callback_query.message.chat.id, InputFile(bio, filename='flashcards.txt'), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en)
 
 
-""" DELETE """
+""" DELETE/HIDE FLASHCARD """
 
 # /delete, deletes the flashcard according to its id (user gets the id from the card list)
 async def delete_card(callback_query : CallbackQuery, state: FSMContext):
@@ -185,8 +177,6 @@ async def delete_state(message: Message, state: FSMContext):
     await state.finish()
 
 
-"""  HIDE  """
-
 # /hide 
 async def hide_card(callback_query : CallbackQuery, state:FSMContext):
     await HideCard.HIDE.set()
@@ -219,7 +209,7 @@ async def hide_state(message: Message, state: FSMContext):
     await state.finish()
 
 
-"""  EDIT  """
+"""  EDIT FLASHCARD  """
 
 async def edit_card(callback_query : CallbackQuery, state : FSMContext):
     user_id = callback_query.from_user.id

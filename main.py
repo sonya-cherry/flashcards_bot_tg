@@ -3,9 +3,11 @@ import schedule
 import asyncio
 
 from aiogram.utils import executor
+
 from app.bot import dp, bot
 from db.db import db_reschedule_cards
 from app.handlers import *
+from app.states import *
 
 
 # logging configuration
@@ -14,14 +16,14 @@ logging.basicConfig(level=logging.INFO)
 # handler registration
 dp.register_message_handler(start_message, commands=['start'])
 dp.register_callback_query_handler(greeting, lambda query: query.data == 'ru' or query.data == 'en', state=SetLanguage.GET_LANGUAGE)
-dp.register_callback_query_handler(help, lambda query: query.data == 'help')
+dp.register_callback_query_handler(show_help, lambda query: query.data == 'help')
 dp.register_callback_query_handler(back_to_menu, lambda query: query.data == 'back')
 
 dp.register_callback_query_handler(add_card, lambda query: query.data == 'add')
 dp.register_message_handler(add_card_front_side, state=AddCard.ADD_FRONT)
 dp.register_message_handler(add_card_back_side, state=AddCard.ADD_BACK)
 
-dp.register_callback_query_handler(edit, lambda query: query.data == 'edit')
+dp.register_callback_query_handler(settings, lambda query: query.data == 'edit')
 
 dp.register_callback_query_handler(ask_if_change_language, lambda query: query.data == 'change_language')
 dp.register_callback_query_handler(change_language, lambda query: query.data == 'yes_lang' or  query.data == 'no_lang', state=ChangeLanguage.GET_CONFIRMATION)
@@ -65,8 +67,6 @@ async def scheduler():
         await asyncio.sleep(1)
 
 if __name__ == '__main__':
-    from aiogram import executor
-    from aiogram import types
 
     loop = asyncio.get_event_loop()
     loop.create_task(scheduler())
