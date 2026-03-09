@@ -128,3 +128,31 @@ change_language_kb_en = InlineKeyboardMarkup()
 change_language_yes_button_en = InlineKeyboardButton(text="Yes", callback_data="yes_lang")
 change_language_no_button_en = InlineKeyboardButton(text="No", callback_data="no_lang")
 change_language_kb_en.add(change_language_yes_button_en, change_language_no_button_en)
+
+
+"""  REMINDERS KEYBOARDS  """
+
+reminders_kb_ru = InlineKeyboardMarkup(row_width=2)
+reminders_enable_button_ru = InlineKeyboardButton("Включить", callback_data="reminder_enable")
+reminders_disable_button_ru = InlineKeyboardButton("Выключить", callback_data="reminder_disable")
+reminders_set_hour_button_ru = InlineKeyboardButton("Выбрать час", callback_data="reminder_choose_hour")
+reminders_back_button_ru = InlineKeyboardButton("Назад", callback_data="reminders_back")
+reminders_kb_ru.add(reminders_enable_button_ru, reminders_disable_button_ru)
+reminders_kb_ru.add(reminders_set_hour_button_ru)
+reminders_kb_ru.add(reminders_back_button_ru)
+
+reminders_kb_en = InlineKeyboardMarkup(row_width=2)
+reminders_enable_button_en = InlineKeyboardButton("Enable", callback_data="reminder_enable")
+reminders_disable_button_en = InlineKeyboardButton("Disable", callback_data="reminder_disable")
+reminders_set_hour_button_en = InlineKeyboardButton("Choose hour", callback_data="reminder_choose_hour")
+reminders_back_button_en = InlineKeyboardButton("Back", callback_data="reminders_back")
+reminders_kb_en.add(reminders_enable_button_en, reminders_disable_button_en)
+reminders_kb_en.add(reminders_set_hour_button_en)
+reminders_kb_en.add(reminders_back_button_en)
+
+
+reminder_hours_kb = InlineKeyboardMarkup(row_width=4)
+for hour in [8, 10, 12, 14, 16, 18, 20, 22]:
+    reminder_hours_kb.insert(
+        InlineKeyboardButton(text=f"{hour}:00", callback_data=f"reminder_hour_{hour}")
+    )

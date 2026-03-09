@@ -1,11 +1,12 @@
 import logging
 import schedule
 import asyncio
+from datetime import datetime
 
 from aiogram.utils import executor
 
 from app.bot import dp, bot
-from db.db import db_reschedule_cards
+from db.db import db_reschedule_cards, db_create_table
 from app.handlers import *
 from app.states import *
 
@@ -17,6 +18,7 @@ logging.basicConfig(level=logging.INFO)
 dp.register_message_handler(start_message, commands=['start'])
 dp.register_callback_query_handler(greeting, lambda query: query.data == 'ru' or query.data == 'en', state=SetLanguage.GET_LANGUAGE)
 dp.register_callback_query_handler(show_help, lambda query: query.data == 'help')
+dp.register_message_handler(help_command, commands=['help'])
 dp.register_callback_query_handler(back_to_menu, lambda query: query.data == 'back')
 
 dp.register_callback_query_handler(add_card, lambda query: query.data == 'add')
@@ -50,6 +52,12 @@ dp.register_callback_query_handler(begin_repetition, lambda query: query.data ==
 dp.register_callback_query_handler(show_front, lambda query: query.data == 'next', state=ShowCard.NEXT)
 dp.register_callback_query_handler(show_back, lambda query: query.data == 'flip', state=ShowCard.FLIP)
 
+dp.register_callback_query_handler(open_reminders_settings, lambda query: query.data == 'reminders')
+dp.register_callback_query_handler(enable_reminders, lambda query: query.data == 'reminder_enable', state=ReminderSettings.CHOOSING)
+dp.register_callback_query_handler(disable_reminders, lambda query: query.data == 'reminder_disable', state=ReminderSettings.CHOOSING)
+dp.register_callback_query_handler(choose_reminder_hour, lambda query: query.data == 'reminder_choose_hour', state=ReminderSettings.CHOOSING)
+dp.register_callback_query_handler(set_reminder_hour, lambda query: query.data.startswith('reminder_hour_'), state=ReminderSettings.CHOOSING)
+dp.register_callback_query_handler(back_to_settings_from_reminders, lambda query: query.data == 'reminders_back',state=ReminderSettings.CHOOSING)
 
 @dp.errors_handler(exception=Exception)
 async def handle_exception(update, exception):
@@ -59,19 +67,28 @@ async def handle_exception(update, exception):
 
 
 schedule.every().day.at("23:59").do(db_reschedule_cards)
-schedule.every().day.at("12:00").do(reminders)
-    
+
+last_reminder_check = None   
 async def scheduler():
+    global last_reminder_check
+
     while True:
         schedule.run_pending()
-        await asyncio.sleep(1)
+
+        now = datetime.now()
+        current_slot = (now.date(), now.hour, now.minute)
+
+        if now.minute == 0 and last_reminder_check != current_slot:
+            await send_reminders_for_hour(now.hour)
+            last_reminder_check = current_slot
+
+        await asyncio.sleep(30)
 
 if __name__ == '__main__':
+    db_create_table()
 
     loop = asyncio.get_event_loop()
     loop.create_task(scheduler())
 
     executor.start_polling(dp, skip_updates=True)
-    loop.run_until_complete(dp.shutdown())
-    loop.run_until_complete(dp.storage.close())
     loop.close()

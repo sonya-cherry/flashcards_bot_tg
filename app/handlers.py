@@ -12,9 +12,9 @@ from io import BytesIO
 
 """  START  """
 # /start
-async def start_message(callback_query : CallbackQuery, state:FSMContext):
+async def start_message(message: Message, state: FSMContext):
     await SetLanguage.GET_LANGUAGE.set()
-    user_id = callback_query.from_user.id
+    user_id = message.from_user.id
     await bot.send_message(user_id, 'Выберите язык: / Choose the language:', reply_markup=start_kb)
 
 
@@ -37,7 +37,16 @@ async def show_help(callback_query : CallbackQuery):
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
     await bot.send_message(user_id, get_text('help-msg', user_id), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en) # help-msg
- 
+    
+
+async def help_command(message: Message):
+    user_id = message.from_user.id
+    lang = db_get_language(user_id)
+    await message.answer(
+        get_text('help-msg', user_id),
+        reply_markup=base_kb_ru if lang == 'ru' else base_kb_en
+    )
+
 # /edit
 async def settings(callback_query : CallbackQuery):
     user_id = callback_query.from_user.id
@@ -74,21 +83,113 @@ async def change_language(callback_query : CallbackQuery, state: FSMContext):
 
 
 """  REMINDERS  """
+def format_reminder_settings_text(user_id):
+    lang = db_get_language(user_id)
+    enabled, hour = db_get_reminder_settings(user_id)
 
-async def reminders(callback_query : CallbackQuery):
-    # get all users once
-    # TODO
-    user_ids = db_get_all_user_ids()
+    if lang == "ru":
+        status = "включены" if enabled else "выключены"
+        return (
+            f"Напоминания сейчас {status}.\n"
+            f"Выбранное время: {hour}:00\n\n"
+            f"Вы можете включить/выключить напоминания или выбрать час."
+        )
+    status = "enabled" if enabled else "disabled"
+    return (
+        f"Reminders are currently {status}.\n"
+        f"Selected time: {hour}:00\n\n"
+        f"You can enable/disable reminders or choose an hour."
+    )
 
-    # broadcast reminder
+async def open_reminders_settings(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    await ReminderSettings.CHOOSING.set()
+
+    await bot.send_message(
+        user_id,
+        format_reminder_settings_text(user_id),
+        reply_markup=reminders_kb_ru if lang == "ru" else reminders_kb_en
+    )
+
+
+async def enable_reminders(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    db_set_reminder_enabled(user_id, 1)
+
+    await bot.send_message(
+        user_id,
+        format_reminder_settings_text(user_id),
+        reply_markup=reminders_kb_ru if lang == "ru" else reminders_kb_en
+    )
+
+
+async def disable_reminders(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    db_set_reminder_enabled(user_id, 0)
+
+    await bot.send_message(
+        user_id,
+        format_reminder_settings_text(user_id),
+        reply_markup=reminders_kb_ru if lang == "ru" else reminders_kb_en
+    )
+
+async def choose_reminder_hour(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    text = "Выберите час для напоминания:" if lang == "ru" else "Choose reminder hour:"
+
+    await bot.send_message(user_id, text, reply_markup=reminder_hours_kb)
+
+
+async def set_reminder_hour(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    hour = int(callback_query.data.split("_")[-1])
+    db_set_reminder_hour(user_id, hour)
+
+    await bot.send_message(
+        user_id,
+        format_reminder_settings_text(user_id),
+        reply_markup=reminders_kb_ru if lang == "ru" else reminders_kb_en
+    )
+
+async def back_to_settings_from_reminders(callback_query: CallbackQuery, state: FSMContext):
+    user_id = callback_query.from_user.id
+    lang = db_get_language(user_id)
+
+    await state.finish()
+
+    await bot.send_message(
+        user_id,
+        get_text('settings-msg', user_id),
+        reply_markup=edit_kb_ru if lang == 'ru' else edit_kb_en
+    )
+
+async def send_reminders_for_hour(hour: int):
+    user_ids = db_get_users_for_reminder_hour(hour)
+
     for user_id in user_ids:
         lang = db_get_language(user_id)
         kb = base_kb_ru if lang == 'ru' else base_kb_en
-        await bot.send_message(
-            user_id,
-            get_text('reminder-msg', user_id),
-            reply_markup=kb
-        )
+
+        try:
+            await bot.send_message(
+                user_id,
+                get_text('reminder-msg', user_id),
+                reply_markup=kb
+            )
+        except Exception as e:
+            print(f"Failed to send reminder to {user_id}: {e}")
+
+
 
 """  ADD FLASHCARD  """
 
@@ -133,10 +234,53 @@ async def send_list(callback_query : CallbackQuery):
     bio = BytesIO()
 
     data = db_get_user_cards(user_id)
-    for line in data:
-        bio.write(' | '.join(map(str, line)).encode('utf-8') + b'\n')
-    bio.seek(0)
+    export_date = date.today().strftime("%d/%m/%Y")
+    total_cards = len(data)
 
+    if lang == "ru":
+        header = (
+            "FLASHCARDS STUDY DECK\n"
+            f"Дата экспорта: {export_date}\n"
+            f"Количество карточек: {total_cards}\n"
+            "\n"
+            + "=" * 50
+            + "\n\n"
+        )
+    else:
+        header = (
+            "FLASHCARDS STUDY DECK\n"
+            f"Export date: {export_date}\n"
+            f"Total cards: {total_cards}\n"
+            "\n"
+            + "=" * 50
+            + "\n\n"
+        )
+
+    bio.write(header.encode("utf-8"))
+
+    for index, (card_id, front, back, repeat_date) in enumerate(data, start=1):
+        if lang == "ru":
+            card_block = (
+                f"[{index}] ID {card_id}\n"
+                f"Вопрос: {front}\n"
+                f"Ответ: {back}\n"
+                f"Следующее повторение: {repeat_date}\n"
+                + "-" * 50
+                + "\n\n"
+            )
+        else:
+            card_block = (
+                f"[{index}] ID {card_id}\n"
+                f"Front: {front}\n"
+                f"Back: {back}\n"
+                f"Next review: {repeat_date}\n"
+                + "-" * 50
+                + "\n\n"
+            )
+
+        bio.write(card_block.encode("utf-8"))
+
+    bio.seek(0)
     await bot.send_document(callback_query.message.chat.id, InputFile(bio, filename='flashcards.txt'), reply_markup=base_kb_ru if lang == 'ru' else base_kb_en)
 
 

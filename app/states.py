@@ -31,7 +31,11 @@ class EditCard(StatesGroup):
     LEARN_AGAIN = State()
 
 
-
 class ShowCard(StatesGroup):
     NEXT = State()
     FLIP = State()
+
+
+class ReminderSettings(StatesGroup):
+    CHOOSING = State()
+

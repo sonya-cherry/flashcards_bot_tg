@@ -11,22 +11,32 @@ def db_get_connection():
 	return sqlite3.connect('flashcards.db')
 
 def db_create_table():
-	with db_get_connection() as conn:
-		cursor = conn.cursor()
-		cursor.execute('''CREATE TABLE IF NOT EXISTS flashcards 
-						(card_id INTEGER PRIMARY KEY AUTOINCREMENT, 
-						user_id INTEGER, 
-						front TEXT, 
-						back TEXT, 
-						repeat_date TEXT,
-						iter INTEGER)''')
+    with db_get_connection() as conn:
+        cursor = conn.cursor()
 
-		cursor.execute('''CREATE TABLE IF NOT EXISTS users
-					(user_id INTEGER PRIMARY KEY,
-					language INTEGER)''')
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            language INTEGER NOT NULL,
+            reminder_enabled INTEGER DEFAULT 0,
+            reminder_hour INTEGER DEFAULT 18
+        )
+        """)
 
-		conn.commit()
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS flashcards (
+            card_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            front TEXT NOT NULL,
+            back TEXT NOT NULL,
+            repeat_date TEXT NOT NULL,
+            iter INTEGER NOT NULL,
 
+            FOREIGN KEY (user_id) REFERENCES users(user_id)
+        )
+        """)
+
+        conn.commit()
 
 
 """  USER SETTINGS  """
@@ -34,11 +44,17 @@ def db_create_table():
 # language = 1 --> russian
 # language = 0 --> english
 def db_set_language(user_id, language):
-	with db_get_connection() as conn:
-		cursor = conn.cursor()	
-
-		cursor.execute('INSERT INTO users (user_id, language) VALUES (?, ?)', (user_id, language))
-		conn.commit()
+    with db_get_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO users (user_id, language)
+            VALUES (?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET language = excluded.language
+            """,
+            (user_id, language),
+        )
+        conn.commit()
 
 
 def db_change_language(user_id):
@@ -150,6 +166,65 @@ def db_get_user_cards(user_id):
 
 		cursor.execute("SELECT card_id, front, back, repeat_date FROM flashcards WHERE user_id = ?", (user_id, ))
 		return cursor.fetchall()
+
+
+"""  REMINDERS  """
+
+def db_get_reminder_settings(user_id):
+	with db_get_connection() as conn: 
+		cursor = conn.cursor()
+		cursor.execute(
+			"SELECT reminder_enabled, reminder_hour FROM users WHERE user_id = ?",
+			(user_id,)
+		)
+		row = cursor.fetchone()
+
+		if row is None:
+			return 0, 18 # disabled, 18:00
+
+		return row[0], row[1]
+
+
+def db_set_reminder_enabled(user_id, enabled):
+	with db_get_connection() as conn: 
+		cursor = conn.cursor()
+		cursor.execute(
+			"""
+			UPDATE users
+			SET reminder_enabled = ?
+			WHERE user_id = ?
+			""",
+			(enabled, user_id)
+		)
+		conn.commit()
+
+
+def db_set_reminder_hour(user_id, hour):
+	with db_get_connection() as conn: 
+		cursor = conn.cursor()
+		cursor.execute(
+			"""
+			UPDATE users
+			SET reminder_hour = ?
+			WHERE user_id = ?
+			""",
+			(hour, user_id)
+		)
+		conn.commit()
+
+
+def db_get_users_for_reminder_hour(hour):
+	with db_get_connection() as conn: 
+		cursor = conn.cursor()
+		cursor.execute(
+			"""
+			SELECT user_id
+			FROM users
+			WHERE reminder_enabled = 1 AND reminder_hour = ?
+			""",
+			(hour,)
+		)
+		return [row[0] for row in cursor.fetchall()]
 
 
 """  SCHEDULING AND REPETITION  """
