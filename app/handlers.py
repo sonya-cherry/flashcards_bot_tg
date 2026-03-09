@@ -1,15 +1,17 @@
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import CallbackQuery, Message, InputFile
-from db import *
-from keyboards import *
-from bot import bot
+
+from db.db import *
+from app.keyboards import *
+from app.bot import bot
+from app.states import *
+
 from io import BytesIO
 import json
 
 # loading messages templates according to the given language (ru/en)
 def load_text(language):
-   with open(f'{language}.json', 'r', encoding='utf-8') as file:
+   with open(f'locales/{language}.json', 'r', encoding='utf-8') as file:
         return json.load(file)
 
 
@@ -18,10 +20,6 @@ def get_text(key, user_id):
     language = db_get_language(user_id)
     texts = load_text(language)
     return texts.get(key)
-
-
-class SetLanguage(StatesGroup):
-    GET_LANGUAGE = State()
 
 
 # /start
@@ -58,6 +56,7 @@ async def edit(callback_query : CallbackQuery):
 
 async def reminders(callback_query : CallbackQuery):
     # get all users once
+    # TODO
     user_ids = db_get_all_user_ids()
 
     # broadcast reminder
@@ -80,10 +79,6 @@ async def back_to_menu(callback_query : CallbackQuery):
 
 """  CHANGE LANGUAGE  """
 
-class ChangeLanguage(StatesGroup):
-    GET_CONFIRMATION = State()
-
-
 async def ask_if_change_language(callback_query : CallbackQuery, state: FSMContext):
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
@@ -104,10 +99,6 @@ async def change_language(callback_query : CallbackQuery, state: FSMContext):
 
 
 """  ADDING NEW FLASHCARD  """
-
-class AddCard(StatesGroup):
-    ADD_FRONT = State()
-    ADD_BACK = State()
 
 # /add
 async def add_card(callback_query: CallbackQuery, state: FSMContext):
@@ -159,10 +150,6 @@ async def send_list(callback_query : CallbackQuery):
 
 """ DELETE """
 
-class DeleteCard(StatesGroup):
-    GET_ID = State()
-
-
 # /delete, deletes the flashcard according to its id (user gets the id from the card list)
 async def delete_card(callback_query : CallbackQuery, state: FSMContext):
     await DeleteCard.GET_ID.set()
@@ -199,9 +186,6 @@ async def delete_state(message: Message, state: FSMContext):
 
 
 """  HIDE  """
-class HideCard(StatesGroup):
-    HIDE = State()
-
 
 # /hide 
 async def hide_card(callback_query : CallbackQuery, state:FSMContext):
@@ -237,20 +221,11 @@ async def hide_state(message: Message, state: FSMContext):
 
 """  EDIT  """
 
-class EditCard(StatesGroup):
-    GET_ID = State()
-    EDIT_FRONT = State()
-    ASK_IF_EDIT_BACK = State()
-    EDIT_BACK = State()
-    LEARN_AGAIN = State()
-
-
 async def edit_card(callback_query : CallbackQuery, state : FSMContext):
     user_id = callback_query.from_user.id
     await EditCard.GET_ID.set()
     await bot.send_message(user_id, get_text('edit-card-which-one-msg', user_id)) #edit-card-which-one-msg
     bio = BytesIO()
-    print('edit_card')
     
     flashcards = db_get_user_cards(user_id)
     await state.update_data(card_ids=[x[0] for x in flashcards])
@@ -262,7 +237,6 @@ async def edit_card(callback_query : CallbackQuery, state : FSMContext):
 
 
 async def ask_if_edit_front(message : Message, state : FSMContext):
-    print('ask if edit front')
     card_id = message.text
     user_id = message.from_user.id
     lang = db_get_language(user_id)
@@ -277,14 +251,12 @@ async def ask_if_edit_front(message : Message, state : FSMContext):
 
 
 async def wait_for_front(callback_query : CallbackQuery, state : FSMContext):
-    print('wait for front')
     await EditCard.EDIT_FRONT.set()
     user_id = callback_query.from_user.id
     await bot.send_message(user_id, get_text('edit-card-send-front-msg', user_id)) # edit-card-send-front-msg
 
 
 async def edit_front(message : Message, state : FSMContext):
-    print('edit_front')
     await EditCard.ASK_IF_EDIT_BACK.set()
 
     user_id = message.from_user.id
@@ -301,14 +273,12 @@ async def edit_front(message : Message, state : FSMContext):
 
 async def ask_if_edit_back(callback_query : CallbackQuery, state : FSMContext):
     await EditCard.ASK_IF_EDIT_BACK.set()
-    print('ask if edit back')
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
     await bot.send_message(user_id, get_text('edit-card-edit-back-msg', user_id), reply_markup=edit_back_kb_ru if lang == 'ru' else edit_back_kb_en) # edit-card-edit-back-msg
 
 
 async def wait_for_back(callback_query : CallbackQuery, state : FSMContext):
-    print('wait for back')
     await EditCard.EDIT_BACK.set()
     user_id = callback_query.from_user.id
     await bot.send_message(user_id, get_text('edit-card-send-back-msg', user_id)) # edit-card-send-back-msg
@@ -325,11 +295,9 @@ async def edit_back(message : Message, state : FSMContext):
     db_edit_back(card_id, back_data)
 
     await message.answer(get_text('edit-card-back-saved-learn-again-msg', user_id), reply_markup=learn_again_kb_ru if lang == 'ru' else learn_again_kb_en) # edit-card-backsaved-learn-again-msg
-    print('ask1')
 
 async def ask_if_learn_again(callback_query : CallbackQuery, state : FSMContext):
     await EditCard.LEARN_AGAIN.set()
-    print(0)
     user_id = callback_query.from_user.id
     lang = db_get_language(user_id)
     await bot.send_message(user_id, get_text('edit-card-learn-again-msg', user_id), reply_markup=learn_again_kb_ru if lang == 'ru' else learn_again_kb_en) # edit-card-learn-again-msg
@@ -348,11 +316,6 @@ async def learn_again(callback_query : CallbackQuery, state : FSMContext):
 
 
 """  REPETITION  """
-
-class ShowCard(StatesGroup):
-    NEXT = State()
-    FLIP = State()
-
 
 # /begin_repetition
 async def begin_repetition(callback_query: CallbackQuery, state: FSMContext):

@@ -1,10 +1,12 @@
 import logging
-from aiogram.utils import executor
-from bot import dp
-from handlers import *
 import schedule
 import asyncio
-import time
+
+from aiogram.utils import executor
+from app.bot import dp, bot
+from db.db import db_reschedule_cards
+from app.handlers import *
+
 
 # logging configuration
 logging.basicConfig(level=logging.INFO)
